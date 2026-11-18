@@ -1,0 +1,1833 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Worbit - Kelime Zinciri</title>
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-glow: rgba(99, 102, 241, 0.55);
+            --secondary: #10b981;
+            --secondary-glow: rgba(16, 185, 129, 0.55);
+            --accent: #f59e0b;
+            --accent-glow: rgba(245, 158, 11, 0.6);
+            --danger: #ef4444;
+            --danger-glow: rgba(239, 68, 68, 0.6);
+            --bg-deep: #070b19;
+            --card-bg: rgba(19, 28, 51, 0.82);
+            --tile-bg: rgba(15, 23, 42, 0.9);
+            --text: #f8fafc;
+            --text-muted: #94a3b8;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background: radial-gradient(circle at 50% 20%, #172042 0%, var(--bg-deep) 75%);
+            color: var(--text);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 16px;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* CANLI YÖRÜNGE (ORBIT) ARKA PLAN EFEKTLERİ */
+        .orbit-bg {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            overflow: hidden;
+            z-index: 0;
+        }
+
+        .orbit-ring {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            border-radius: 50%;
+            border: 1px solid rgba(129, 140, 248, 0.14);
+            transform: translate(-50%, -50%);
+        }
+
+        .orbit-ring.r1 {
+            width: 460px;
+            height: 460px;
+            animation: spinSlow 28s linear infinite;
+        }
+
+        .orbit-ring.r2 {
+            width: 680px;
+            height: 680px;
+            border-style: dashed;
+            border-color: rgba(52, 211, 153, 0.12);
+            animation: spinReverse 42s linear infinite;
+        }
+
+        .orbit-ring::before {
+            content: "";
+            position: absolute;
+            top: -5px;
+            left: 50%;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #818cf8;
+            box-shadow: 0 0 14px #818cf8, 0 0 28px #818cf8;
+        }
+
+        .orbit-ring.r2::before {
+            background: #34d399;
+            box-shadow: 0 0 14px #34d399, 0 0 28px #34d399;
+        }
+
+        @keyframes spinSlow {
+            from { transform: translate(-50%, -50%) rotate(0deg); }
+            to { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+
+        @keyframes spinReverse {
+            from { transform: translate(-50%, -50%) rotate(360deg); }
+            to { transform: translate(-50%, -50%) rotate(0deg); }
+        }
+
+        /* PARÇACIK EFEKTİ CANVAS */
+        #fx-canvas {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 50;
+        }
+
+        /* ANA OYUN KARTI */
+        .app-container {
+            width: 100%;
+            max-width: 440px;
+            background: var(--card-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(129, 140, 248, 0.25);
+            border-radius: 28px;
+            padding: 22px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.75), 0 0 30px rgba(99, 102, 241, 0.15);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            position: relative;
+            z-index: 1;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+
+        .app-container.fever-mode {
+            border-color: rgba(245, 158, 11, 0.65);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8), 0 0 35px rgba(245, 158, 11, 0.25);
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .brand-wrap {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .brand-orb {
+            width: 34px;
+            height: 34px;
+            border-radius: 11px;
+            background: linear-gradient(135deg, #6366f1, #10b981);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            font-size: 1.15rem;
+            color: white;
+            box-shadow: 0 0 16px var(--primary-glow);
+            animation: floatOrb 3s ease-in-out infinite;
+        }
+
+        @keyframes floatOrb {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-3px) rotate(4deg); }
+        }
+
+        h1 {
+            font-size: 1.65rem;
+            font-weight: 900;
+            background: linear-gradient(to right, #a5b4fc, #34d399, #fbbf24);
+            background-size: 200% auto;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: 1.5px;
+            animation: shineText 5s linear infinite;
+        }
+
+        @keyframes shineText {
+            to { background-position: 200% center; }
+        }
+
+        select {
+            background: rgba(15, 23, 42, 0.85);
+            color: var(--text);
+            border: 1px solid rgba(148, 163, 184, 0.3);
+            padding: 7px 12px;
+            border-radius: 12px;
+            outline: none;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .screen {
+            display: none;
+            flex-direction: column;
+            gap: 14px;
+            animation: fadeSlideIn 0.3s ease;
+        }
+
+        .screen.active {
+            display: flex;
+        }
+
+        @keyframes fadeSlideIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .section-label {
+            font-size: 0.82rem;
+            color: #cbd5e1;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        /* HARF UZUNLUĞU SEÇİCİ */
+        .length-selector {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 6px;
+        }
+
+        .len-btn {
+            background: rgba(15, 23, 42, 0.75);
+            color: var(--text-muted);
+            border: 2px solid #334155;
+            padding: 10px 4px;
+            border-radius: 14px;
+            font-size: 0.82rem;
+            font-weight: 800;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+            text-align: center;
+        }
+
+        .len-btn:hover {
+            border-color: #64748b;
+            transform: translateY(-2px);
+        }
+
+        .len-btn.active {
+            border-color: var(--secondary);
+            background: linear-gradient(180deg, rgba(16, 185, 129, 0.25), rgba(16, 185, 129, 0.08));
+            color: #6ee7b7;
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.3);
+            transform: translateY(-2px);
+        }
+
+        /* BUTONLAR */
+        .btn {
+            background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+            color: white;
+            border: none;
+            padding: 14px;
+            border-radius: 16px;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 8px 20px -4px var(--primary-glow);
+            transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s, filter 0.2s;
+            text-align: center;
+        }
+
+        .btn:hover:not(:disabled) {
+            filter: brightness(1.1);
+            transform: translateY(-2px);
+        }
+
+        .btn:active:not(:disabled) {
+            transform: scale(0.96);
+        }
+
+        .btn:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #334155 0%, #1e293b 100%);
+            border: 1px solid #475569;
+            box-shadow: 0 6px 15px -4px rgba(0, 0, 0, 0.4);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            box-shadow: 0 6px 16px -4px var(--danger-glow);
+        }
+
+        .mode-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .multi-setup {
+            display: none;
+            flex-direction: column;
+            gap: 10px;
+            background: rgba(15, 23, 42, 0.7);
+            padding: 12px;
+            border-radius: 16px;
+            border: 1px solid #334155;
+        }
+
+        /* SKOR TABLOSU */
+        .scoreboard {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            padding: 2px 0 4px 0;
+        }
+
+        .player-badge {
+            flex: 1;
+            min-width: 88px;
+            background: rgba(15, 23, 42, 0.75);
+            padding: 10px 8px;
+            border-radius: 14px;
+            text-align: center;
+            border: 2px solid rgba(51, 65, 85, 0.8);
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            position: relative;
+        }
+
+        .player-badge.active {
+            border-color: var(--secondary);
+            background: linear-gradient(180deg, rgba(16, 185, 129, 0.22), rgba(15, 23, 42, 0.9));
+            box-shadow: 0 0 18px rgba(16, 185, 129, 0.25);
+            transform: translateY(-2px);
+        }
+
+        .player-badge.eliminated {
+            opacity: 0.35;
+            text-decoration: line-through;
+        }
+
+        .player-name {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .player-score {
+            font-size: 1.15rem;
+            font-weight: 800;
+            color: var(--text);
+            margin-top: 2px;
+        }
+
+        .streak-pill {
+            position: absolute;
+            top: -8px;
+            right: -4px;
+            background: linear-gradient(135deg, #f59e0b, #ea580c);
+            color: white;
+            font-size: 0.65rem;
+            font-weight: 900;
+            padding: 2px 6px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px var(--accent-glow);
+            animation: pop 0.3s ease;
+        }
+
+        /* SÜRE ÇUBUĞU */
+        .timer-wrapper {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .timer-bar-bg {
+            width: 100%;
+            height: 10px;
+            background: rgba(15, 23, 42, 0.9);
+            border-radius: 6px;
+            overflow: hidden;
+            border: 1px solid #334155;
+        }
+
+        .timer-bar-fill {
+            height: 100%;
+            width: 100%;
+            background: linear-gradient(90deg, #10b981, #34d399);
+            box-shadow: 0 0 12px var(--secondary-glow);
+            transition: width 0.1s linear, background 0.3s;
+        }
+
+        .timer-bar-fill.danger-pulse {
+            background: linear-gradient(90deg, #ef4444, #f87171);
+            box-shadow: 0 0 16px var(--danger-glow);
+        }
+
+        /* AKTİF KELİME ARENASI */
+        .current-word-box {
+            background: radial-gradient(circle at top, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.95));
+            padding: 18px 12px;
+            border-radius: 20px;
+            text-align: center;
+            position: relative;
+            cursor: pointer;
+            border: 1px solid rgba(129, 140, 248, 0.25);
+            box-shadow: inset 0 0 24px rgba(0, 0, 0, 0.45);
+            transition: transform 0.2s, border-color 0.2s;
+        }
+
+        .current-word-box:hover {
+            border-color: rgba(129, 140, 248, 0.6);
+        }
+
+        .word-meta-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            padding: 0 6px;
+        }
+
+        .turn-indicator {
+            font-size: 0.85rem;
+            color: #6ee7b7;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .length-pill {
+            font-size: 0.72rem;
+            background: rgba(99, 102, 241, 0.22);
+            border: 1px solid rgba(99, 102, 241, 0.4);
+            color: #c7d2fe;
+            padding: 3px 9px;
+            border-radius: 10px;
+            font-weight: 700;
+        }
+
+        .word-display {
+            display: flex;
+            justify-content: center;
+            gap: 7px;
+            margin: 10px 0;
+            perspective: 600px;
+        }
+
+        /* 3D HARF KAROLARI */
+        .letter-tile {
+            flex: 1;
+            max-width: 52px;
+            height: 58px;
+            background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+            border: 2px solid #475569;
+            border-bottom-width: 4px;
+            border-radius: 14px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.7rem;
+            font-weight: 900;
+            text-transform: uppercase;
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.35);
+            transition: transform 0.2s;
+        }
+
+        .letter-tile.compact {
+            max-width: 45px;
+            height: 50px;
+            font-size: 1.45rem;
+        }
+
+        .letter-tile.wave {
+            animation: tileWave 0.4s ease forwards;
+        }
+
+        .letter-tile.changed {
+            background: linear-gradient(180deg, rgba(16, 185, 129, 0.35) 0%, rgba(6, 78, 59, 0.8) 100%);
+            border-color: #34d399;
+            color: #6ee7b7;
+            box-shadow: 0 0 20px var(--secondary-glow);
+            animation: flipTile 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+
+        @keyframes flipTile {
+            0% { transform: rotateY(90deg) scale(0.7); }
+            60% { transform: rotateY(-12deg) scale(1.12); }
+            100% { transform: rotateY(0deg) scale(1); }
+        }
+
+        @keyframes tileWave {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-5px); }
+        }
+
+        /* UÇAN PUAN EFEKTİ */
+        .floating-score {
+            position: absolute;
+            top: 45%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 1.5rem;
+            font-weight: 900;
+            color: #fbbf24;
+            text-shadow: 0 0 14px rgba(245, 158, 11, 0.85), 0 2px 4px rgba(0,0,0,0.8);
+            pointer-events: none;
+            z-index: 20;
+            animation: floatUpScore 1.1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        @keyframes floatUpScore {
+            0% { opacity: 0; transform: translate(-50%, 10px) scale(0.6); }
+            25% { opacity: 1; transform: translate(-50%, -15px) scale(1.15); }
+            100% { opacity: 0; transform: translate(-50%, -65px) scale(0.95); }
+        }
+
+        .dict-hint-badge {
+            display: inline-block;
+            margin-top: 6px;
+            font-size: 0.75rem;
+            color: #a5b4fc;
+            background: rgba(99, 102, 241, 0.16);
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            padding: 4px 12px;
+            border-radius: 20px;
+            transition: background 0.2s;
+        }
+
+        .current-word-box:hover .dict-hint-badge {
+            background: rgba(99, 102, 241, 0.3);
+        }
+
+        .time-readout {
+            font-size: 0.82rem;
+            color: var(--text-muted);
+            margin-top: 8px;
+            font-weight: 700;
+        }
+
+        .time-readout.urgent {
+            color: #f87171;
+            animation: pulseText 0.5s infinite alternate;
+        }
+
+        @keyframes pulseText {
+            from { transform: scale(1); }
+            to { transform: scale(1.08); }
+        }
+
+        @keyframes pop {
+            0% { transform: scale(0.8); }
+            50% { transform: scale(1.15); }
+            100% { transform: scale(1); }
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-8px); }
+            40%, 80% { transform: translateX(8px); }
+        }
+
+        .shake-error {
+            animation: shake 0.4s ease-in-out;
+            border-color: var(--danger) !important;
+            background-color: rgba(239, 68, 68, 0.16) !important;
+            box-shadow: 0 0 18px var(--danger-glow) !important;
+        }
+
+        /* GİRİŞ ALANI */
+        .input-group {
+            display: flex;
+            gap: 8px;
+        }
+
+        input[type="text"], input[type="number"] {
+            flex: 1;
+            background: rgba(15, 23, 42, 0.9);
+            border: 2px solid #334155;
+            color: var(--text);
+            padding: 14px;
+            border-radius: 16px;
+            font-size: 1.25rem;
+            font-weight: 800;
+            text-align: center;
+            text-transform: uppercase;
+            outline: none;
+            letter-spacing: 3px;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        input[type="text"]:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 16px var(--primary-glow);
+        }
+
+        .message-box {
+            min-height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            font-size: 0.88rem;
+            font-weight: 700;
+            padding: 6px 12px;
+            border-radius: 12px;
+        }
+
+        .msg-error { color: #fca5a5; background: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.45); }
+        .msg-success { color: #6ee7b7; background: rgba(16, 185, 129, 0.18); border: 1px solid rgba(16, 185, 129, 0.35); }
+        .msg-info { color: #c7d2fe; background: rgba(99, 102, 241, 0.18); border: 1px solid rgba(99, 102, 241, 0.3); }
+
+        .history-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            max-height: 88px;
+            overflow-y: auto;
+            padding: 8px;
+            background: rgba(15, 23, 42, 0.75);
+            border-radius: 14px;
+            border: 1px solid rgba(51, 65, 85, 0.6);
+        }
+
+        .history-tag {
+            background: linear-gradient(180deg, #334155, #1e293b);
+            border: 1px solid #475569;
+            padding: 5px 10px;
+            border-radius: 9px;
+            font-size: 0.82rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            transition: transform 0.15s, border-color 0.2s;
+        }
+
+        .history-tag:hover {
+            border-color: #818cf8;
+            transform: translateY(-2px);
+        }
+        .history-tag::after { content: "📖"; font-size: 0.68rem; opacity: 0.85; }
+
+        /* OYUN SONU ALTERNATİF KUTUSU */
+        .feedback-box {
+            background: rgba(245, 158, 11, 0.12);
+            border: 1px solid rgba(245, 158, 11, 0.4);
+            border-radius: 16px;
+            padding: 14px;
+            display: none;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .feedback-title { font-size: 0.9rem; color: #fbbf24; font-weight: 700; }
+        .feedback-tags { display: flex; flex-wrap: wrap; gap: 6px; max-height: 110px; overflow-y: auto; }
+        .alt-tag {
+            background: rgba(15, 23, 42, 0.9);
+            border: 1px solid #f59e0b;
+            color: #fde68a;
+            padding: 5px 10px;
+            border-radius: 9px;
+            font-size: 0.85rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            transition: transform 0.15s;
+        }
+        .alt-tag:hover { transform: translateY(-2px); }
+        .alt-tag::after { content: "📖"; font-size: 0.7rem; }
+
+        /* TDK SÖZLÜK MODAL */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(3, 7, 18, 0.8);
+            backdrop-filter: blur(6px);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            z-index: 100;
+        }
+        .modal-overlay.open { display: flex; }
+        .modal-card {
+            background: #131c33;
+            border: 1px solid rgba(129, 140, 248, 0.35);
+            border-radius: 24px;
+            width: 100%;
+            max-width: 400px;
+            padding: 22px;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.8);
+            animation: pop 0.25s ease;
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #334155;
+            padding-bottom: 12px;
+            margin-bottom: 14px;
+        }
+        .modal-word { font-size: 1.45rem; font-weight: 900; color: #34d399; text-transform: uppercase; letter-spacing: 1px; }
+        .modal-body { max-height: 240px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; font-size: 0.95rem; line-height: 1.5; }
+        .meaning-item { background: rgba(15, 23, 42, 0.85); padding: 10px 12px; border-radius: 12px; border-left: 3px solid var(--primary); }
+        .meaning-type { font-size: 0.75rem; color: #818cf8; font-style: italic; margin-bottom: 2px; font-weight: 600; }
+    </style>
+</head>
+<body>
+
+<!-- CANLI YÖRÜNGE ARKA PLANI -->
+<div class="orbit-bg">
+    <div class="orbit-ring r1"></div>
+    <div class="orbit-ring r2"></div>
+</div>
+
+<!-- PARÇACIK KONFETİ / KIVILCIM EFEKTİ CANVAS -->
+<canvas id="fx-canvas"></canvas>
+
+<div class="app-container" id="app-container">
+    <div class="header">
+        <div class="brand-wrap">
+            <div class="brand-orb">W</div>
+            <h1>WORBIT</h1>
+        </div>
+        <select id="lang-select" onchange="UIController.changeLanguage()">
+            <option value="tr">🇹🇷 Türkçe (TDK)</option>
+            <option value="en">🇬🇧 English</option>
+        </select>
+    </div>
+
+    <!-- GİRİŞ / MENÜ EKRANI -->
+    <div id="menu-screen" class="screen active">
+        <p id="menu-desc" style="color: #cbd5e1; font-size: 0.92rem; line-height: 1.5;">
+            Önceki kelimenin sadece <b>1 harfini</b> değiştirerek anlamlı yeni kelimeler türet. Hızlı cevap ver, <b>hız kombosunu</b> yakala!
+        </p>
+
+        <div>
+            <span class="section-label" id="lbl-word-len">Kelime Uzunluğu Seç:</span>
+            <div class="length-selector" id="length-selector">
+                <button class="len-btn" data-len="3" onclick="UIController.selectLength(3)">3 Harf</button>
+                <button class="len-btn active" data-len="4" onclick="UIController.selectLength(4)">4 Harf</button>
+                <button class="len-btn" data-len="5" onclick="UIController.selectLength(5)">5 Harf</button>
+                <button class="len-btn" data-len="6" onclick="UIController.selectLength(6)">6 Harf</button>
+                <button class="len-btn" data-len="0" onclick="UIController.selectLength(0)">Karışık</button>
+            </div>
+        </div>
+
+        <div class="mode-group">
+            <button class="btn" onclick="GameBootstrap.startLocal('solo')" id="btn-solo">👤 Tek Kişilik (Bota Karşı)</button>
+            <button class="btn" onclick="GameBootstrap.startLocal('duo')" id="btn-duo">👥 2 Kişilik</button>
+            <button class="btn btn-secondary" onclick="UIController.toggleMultiSetup()" id="btn-multi">👨‍👩‍👧‍👦 2'den Fazla Kişi (3-6)</button>
+        </div>
+
+        <div id="multi-setup" class="multi-setup">
+            <label id="lbl-player-count" style="font-size: 0.9rem; font-weight: 600;">Oyuncu Sayısı (3 - 6):</label>
+            <div style="display: flex; gap: 8px;">
+                <input type="number" id="player-count-input" min="3" max="6" value="3" style="padding: 8px;">
+                <button class="btn" onclick="GameBootstrap.startLocal('multi')" id="btn-start-multi" style="padding: 8px 18px;">Başla</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- OYUN EKRANI -->
+    <div id="game-screen" class="screen">
+        <div class="scoreboard" id="scoreboard"></div>
+
+        <div class="timer-wrapper">
+            <div class="timer-bar-bg">
+                <div class="timer-bar-fill" id="timer-bar"></div>
+            </div>
+        </div>
+
+        <div class="current-word-box" id="word-arena" onclick="UIController.openMeaningModal(WorbitEngine.state.currentWord)">
+            <div class="word-meta-bar">
+                <span class="turn-indicator" id="turn-indicator">Sıra: Oyuncu 1</span>
+                <span class="length-pill" id="word-len-badge">4 Harf</span>
+            </div>
+            <div class="word-display" id="word-display"></div>
+            <div class="dict-hint-badge" id="dict-hint-badge">📖 TDK Anlamını Gör</div>
+            <div class="time-readout" id="time-text">Kalan Süre: 20.0s</div>
+        </div>
+
+        <div class="message-box" id="message-box"></div>
+
+        <div class="input-group">
+            <input type="text" id="word-input" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="Yeni kelime...">
+            <button class="btn" onclick="GameBootstrap.handleUserSubmit()" id="btn-send">Gönder</button>
+        </div>
+
+        <div>
+            <div style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 4px; font-weight: 600;" id="lbl-history">Kullanılan Kelimeler (Anlamı için tıkla):</div>
+            <div class="history-list" id="history-list"></div>
+        </div>
+
+        <button class="btn btn-danger" onclick="WorbitEngine.endGame(true, false)" id="btn-quit" style="padding: 10px; font-size: 0.9rem;">Oyunu Bitir</button>
+    </div>
+
+    <!-- OYUN SONU EKRANI -->
+    <div id="gameover-screen" class="screen">
+        <h2 id="gameover-title" style="text-align: center; color: var(--secondary); font-size: 1.5rem; font-weight: 900;">Oyun Bitti!</h2>
+        <div id="final-scores" style="display: flex; flex-direction: column; gap: 8px;"></div>
+        
+        <div id="feedback-box" class="feedback-box">
+            <div class="feedback-title" id="feedback-title">💡 Yazabileceğin alternatifler:</div>
+            <div class="feedback-tags" id="feedback-tags"></div>
+            <div style="font-size: 0.75rem; color: var(--text-muted);" id="feedback-hint">Anlamını öğrenmek için kelimelerin üzerine tıklayabilirsin.</div>
+        </div>
+
+        <button class="btn" onclick="UIController.showMenu()" id="btn-menu">Ana Menüye Dön</button>
+    </div>
+</div>
+
+<!-- SÖZLÜK MODAL -->
+<div class="modal-overlay" id="meaning-modal" onclick="UIController.closeMeaningModal(event)">
+    <div class="modal-card" onclick="event.stopPropagation()">
+        <div class="modal-header">
+            <span class="modal-word" id="modal-word-title">KELİME</span>
+            <span style="font-size: 0.75rem; color: var(--text-muted);" id="modal-source-badge">TDK Güncel Sözlük</span>
+        </div>
+        <div class="modal-body" id="modal-meaning-body">Yükleniyor...</div>
+        <button class="btn" onclick="UIController.closeMeaningModal()" id="btn-close-modal" style="width: 100%; margin-top: 16px; padding: 10px;">Kapat</button>
+    </div>
+</div>
+
+<script>
+    /**
+     * 0. PARÇACIK EFEKTİ MOTORU (ParticleFX)
+     */
+    const ParticleFX = {
+        canvas: document.getElementById('fx-canvas'),
+        ctx: null,
+        particles: [],
+        animating: false,
+
+        init() {
+            this.ctx = this.canvas.getContext('2d');
+            this.resize();
+            window.addEventListener('resize', () => this.resize());
+        },
+
+        resize() {
+            this.canvas.width = window.innerWidth;
+            this.canvas.height = window.innerHeight;
+        },
+
+        burst(x, y, colors = ['#10b981', '#34d399', '#fbbf24', '#818cf8']) {
+            for (let i = 0; i < 36; i++) {
+                const angle = (Math.PI * 2 * i) / 36 + (Math.random() - 0.5) * 0.4;
+                const speed = 2.5 + Math.random() * 5.5;
+                this.particles.push({
+                    x,
+                    y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed - 1.5,
+                    size: 4 + Math.random() * 4,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    alpha: 1,
+                    decay: 0.02 + Math.random() * 0.015
+                });
+            }
+            if (!this.animating) {
+                this.animating = true;
+                this.loop();
+            }
+        },
+
+        loop() {
+            this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+            this.particles.forEach((p, idx) => {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.vy += 0.14; // Hafif yerçekimi
+                p.alpha -= p.decay;
+
+                if (p.alpha <= 0) {
+                    this.particles.splice(idx, 1);
+                } else {
+                    this.ctx.save();
+                    this.ctx.globalAlpha = p.alpha;
+                    this.ctx.fillStyle = p.color;
+                    this.ctx.shadowBlur = 10;
+                    this.ctx.shadowColor = p.color;
+                    this.ctx.beginPath();
+                    this.ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                    this.ctx.fill();
+                    this.ctx.restore();
+                }
+            });
+
+            if (this.particles.length > 0) {
+                requestAnimationFrame(() => this.loop());
+            } else {
+                this.animating = false;
+            }
+        }
+    };
+    ParticleFX.init();
+
+    /**
+     * 1. GELİŞMİŞ SES MOTORU (AudioService)
+     */
+    const AudioService = {
+        ctx: new (window.AudioContext || window.webkitAudioContext)(),
+        play(type) {
+            try {
+                if (this.ctx.state === 'suspended') this.ctx.resume();
+                const now = this.ctx.currentTime;
+
+                if (type === 'error') {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(165, now);
+                    osc.frequency.exponentialRampToValueAtTime(105, now + 0.24);
+                    gain.gain.setValueAtTime(0.14, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.24);
+                    osc.start(now); osc.stop(now + 0.24);
+                } else if (type === 'success' || type === 'combo') {
+                    const notes = type === 'combo' ? [523.25, 659.25, 783.99, 1046.50] : [523.25, 659.25, 783.99];
+                    notes.forEach((freq, idx) => {
+                        const osc = this.ctx.createOscillator();
+                        const gain = this.ctx.createGain();
+                        osc.connect(gain);
+                        gain.connect(this.ctx.destination);
+                        osc.type = 'triangle';
+                        osc.frequency.setValueAtTime(freq, now + idx * 0.06);
+                        gain.gain.setValueAtTime(0.11, now + idx * 0.06);
+                        gain.gain.exponentialRampToValueAtTime(0.005, now + idx * 0.06 + 0.22);
+                        osc.start(now + idx * 0.06);
+                        osc.stop(now + idx * 0.06 + 0.22);
+                    });
+                } else if (type === 'tick') {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(880, now);
+                    gain.gain.setValueAtTime(0.05, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+                    osc.start(now); osc.stop(now + 0.06);
+                }
+            } catch (e) {}
+        }
+    };
+
+    /**
+     * 2. SÖZLÜK VE ÇOKLU HARF VERİTABANI (DictionaryService)
+     */
+    const DictionaryService = {
+        cache: { tr: {}, en: {} },
+        data: {
+            tr: {
+                ui: {
+                    desc: "Önceki kelimenin sadece <b>1 harfini</b> değiştirerek anlamlı yeni kelimeler türet. Hızlı cevap ver, <b>hız kombosunu</b> yakala!",
+                    wordLen: "Kelime Uzunluğu Seç:",
+                    len3: "3 Harf", len4: "4 Harf", len5: "5 Harf", len6: "6 Harf", lenMix: "Karışık",
+                    solo: "👤 Tek Kişilik (Bota Karşı)",
+                    duo: "👥 2 Kişilik",
+                    multi: "👨‍👩‍👧‍👦 2'den Fazla Kişi (3-6)",
+                    playerCount: "Oyuncu Sayısı (3 - 6):",
+                    start: "Başla",
+                    turn: "Sıra:",
+                    timeLeft: "Kalan Süre:",
+                    placeholder: "Yeni kelime...",
+                    send: "Gönder",
+                    checking: "🔍 TDK Sözlük kontrol ediliyor...",
+                    dictHint: "📖 TDK Anlamını Gör",
+                    history: "Kullanılan Kelimeler (Anlamı için tıkla):",
+                    quit: "Oyunu Bitir",
+                    gameOver: "Oyun Bitti!",
+                    gameLost: "Süre Doldu - Kaybettin!",
+                    menu: "Ana Menüye Dön",
+                    player: "Oyuncu",
+                    bot: "Yapay Zeka",
+                    errInvalidChars: "⚠️ Lütfen sadece geçerli harfler kullanın!",
+                    errLength: (len) => `⚠️ Kelime tam ${len} harfli olmalı!`,
+                    errDiff: "⚠️ Tam olarak SADECE 1 harf değiştirmelisin!",
+                    errUsed: "⚠️ Bu kelime daha önce kullanıldı!",
+                    errDict: "❌ Bu kelime TDK sözlüğünde bulunamadı veya anlamsız!",
+                    errTime: "⏰ Süre doldu! Elendin.",
+                    botThinking: "🤖 Yapay Zeka hamlesini düşünüyor...",
+                    botStuck: "🎉 Yapay Zeka kelime bulamadı! Kazandın!",
+                    modalSource: "TDK Güncel Sözlük",
+                    modalClose: "Kapat",
+                    loadingMeaning: "TDK'dan anlam getiriliyor...",
+                    feedbackTitle: (w) => `💡 "${w.toLocaleUpperCase('tr-TR')}" yerine yazabileceğin alternatifler:`,
+                    feedbackNone: (w) => `ℹ️ "${w.toLocaleUpperCase('tr-TR')}" kelimesinden türetilebilecek başka kelime kalmamıştı!`,
+                    feedbackHint: "Anlamını öğrenmek için kelimelerin üzerine tıklayabilirsin."
+                },
+                words: {
+                    // 3 HARFLİ
+                    "kal": [{ type: "isim", text: "Arıtma, eritme işi." }],
+                    "bal": [{ type: "isim", text: "Arıların çiçeklerden topladığı özden yaptığı tatlı madde." }],
+                    "dal": [{ type: "isim", text: "Ağacın gövdesinden ayrılan kollardan her biri." }],
+                    "sal": [{ type: "isim", text: "Birçok kalın direk yan yana bağlanarak yapılan düz deniz taşıtı." }],
+                    "şal": [{ type: "isim", text: "Omuzları örtmek için kullanılan geniş atkı." }],
+                    "mal": [{ type: "isim", text: "Bir kimsenin mülkiyeti altında bulunan taşınır veya taşınmaz varlık." }],
+                    "hal": [{ type: "isim", text: "Durum, vaziyet; sebze ve meyve pazarı." }],
+                    "fal": [{ type: "isim", text: "Geleceği öğrenmek amacıyla bakılan oyun." }],
+                    "kar": [{ type: "isim", text: "Beyaz, billurlaşmış su buharı yağışı." }],
+                    "dar": [{ type: "sıfat", text: "Eni az olan, geniş karşıtı." }],
+                    "var": [{ type: "sıfat", text: "Bulunan, mevcut, yok karşıtı." }],
+                    "yar": [{ type: "isim", text: "Sevgili; uçurum." }],
+                    "zar": [{ type: "isim", text: "İnce örtü; tavla oyununda kullanılan küp." }],
+                    "kas": [{ type: "isim, anatomi", text: "Kasılma yeteneğine sahip doku." }],
+                    "pas": [{ type: "isim", text: "Metallerin oksitlenmesiyle oluşan tabaka." }],
+                    "tas": [{ type: "isim", text: "İçine sulu şeyler konulan metal kap." }],
+                    "yas": [{ type: "isim", text: "Ölüm veya felaket doğuran olaydan duyulan acı, matem." }],
+                    "baş": [{ type: "isim", text: "Kafa; başkan, lider." }],
+                    "kaş": [{ type: "isim, anatomi", text: "Gözlerin üzerinde kemerli bir çizgi oluşturan kısa kıllar." }],
+                    "taş": [{ type: "isim", text: "Sert ve katı mineral kütlesi." }],
+                    "yaş": [{ type: "isim", text: "Doğumdan beri geçen yıl sayısı; ıslak, kuru karşıtı." }],
+                    // 4 HARFLİ
+                    "para": [{ type: "isim", text: "Devletçe bastırılan ödeme aracı, nakit." }],
+                    "pars": [{ type: "isim, hayvan bilimi", text: "Kedigillerden yırtıcı memeli hayvan; leopar." }],
+                    "kars": [{ type: "özel isim", text: "Doğu Anadolu Bölgesi'nde bir ilimiz." }],
+                    "kart": [{ type: "sıfat", text: "Tazeliğini yitirmiş." }, { type: "isim", text: "İnce karton parçası." }],
+                    "mart": [{ type: "isim", text: "Yılın üçüncü ayı." }],
+                    "mert": [{ type: "sıfat", text: "Sözünün eri, yiğit kimse." }],
+                    "sert": [{ type: "sıfat", text: "Katı, yumuşak karşıtı." }],
+                    "sırt": [{ type: "isim", text: "Boyundan bele kadar uzanan üst bölüm." }],
+                    "sarf": [{ type: "isim", text: "Harcama, masraf." }],
+                    "zarf": [{ type: "isim", text: "Mektup kılıfı; belirteç." }],
+                    "harp": [{ type: "isim", text: "Savaş, cenk." }],
+                    "sarp": [{ type: "sıfat", text: "Çıkılması güç, dik." }],
+                    "arpa": [{ type: "isim", text: "Bir tahıl bitkisi." }],
+                    "arsa": [{ type: "isim", text: "Yapı yapılmak için ayrılmış toprak parçası." }],
+                    "kasa": [{ type: "isim", text: "Değerli eşya saklanan çelik dolap." }],
+                    "kaza": [{ type: "isim", text: "İstem dışı zarar verici olay." }],
+                    "masa": [{ type: "isim", text: "Ayaklar üzerine oturtulmuş tabladan oluşan mobilya." }],
+                    "yasa": [{ type: "isim, hukuk", text: "Kanun, uyulması gereken kural." }],
+                    "kale": [{ type: "isim", text: "Kalın duvarlı, burçlu savunma yapısı." }],
+                    "lale": [{ type: "isim", text: "Soğanlı bir süs bitkisi." }],
+                    "nane": [{ type: "isim", text: "Güzel kokulu baharat bitkisi." }],
+                    "hane": [{ type: "isim", text: "Ev, konut." }],
+                    "tane": [{ type: "isim", text: "Adet; bitki tohumu." }],
+                    // 5 HARFLİ
+                    "kalem": [{ type: "isim", text: "Yazma, çizme aracı." }],
+                    "kelam": [{ type: "isim", text: "Söz, lakırtı." }],
+                    "selam": [{ type: "isim", text: "Esenlik dileme sözü veya işareti." }],
+                    "kelim": [{ type: "isim", text: "Söz söyleyen, konuşan." }],
+                    "kilim": [{ type: "isim", text: "Havısız dokuma yer yaygısı." }],
+                    "bilim": [{ type: "isim", text: "Evrenin bir bölümünü konu olarak seçen düzenli bilgi, ilim." }],
+                    "dilim": [{ type: "isim", text: "Bütünden kesilmiş yassı parça." }],
+                    "filim": [{ type: "isim", text: "Sinema eseri (film)." }],
+                    "tarak": [{ type: "isim", text: "Saçları açmaya yarayan dişli araç." }],
+                    "parak": [{ type: "isim", text: "Küçük parça." }],
+                    "barak": [{ type: "isim", text: "Tüylü bir tür av köpeği; bir Türkmen boyu." }],
+                    "merak": [{ type: "isim", text: "Bir şeyi anlamak veya öğrenmek için duyulan istek." }],
+                    "çorak": [{ type: "sıfat", text: "Verimsiz, tuzlu toprak." }],
+                    "koruk": [{ type: "isim", text: "Olgunlaşmamış ekşi üzüm." }],
+                    "doruk": [{ type: "isim", text: "Dağ veya tepenin en yüksek noktası, zirve." }],
+                    "soluk": [{ type: "isim", text: "Nefes; rengi atmış." }],
+                    "soğuk": [{ type: "sıfat", text: "Isısı düşük olan, sıcak karşıtı." }],
+                    "çocuk": [{ type: "isim", text: "Küçük yaştaki oğlan veya kız." }],
+                    "kabuk": [{ type: "isim", text: "Bir şeyin üstünü kaplayan sertçe koruyucu tabaka." }],
+                    "çabuk": [{ type: "sıfat", text: "Hızlı, süratli." }],
+                    "pamuk": [{ type: "isim", text: "Kozasından beyaz lifler elde edilen bitki." }],
+                    // 6 HARFLİ
+                    "kalkan": [{ type: "isim", text: "Savunma aracı; bir balık türü." }],
+                    "balkan": [{ type: "isim", text: "Sarp ve ormanlık sıradağ." }],
+                    "salkan": [{ type: "sıfat", text: "Sarkan, aşağı doğru uzanan." }],
+                    "çalkan": [{ type: "isim", text: "Dalgalı deniz." }],
+                    "kalgın": [{ type: "sıfat", text: "Yorgun, bitkin." }],
+                    "salgın": [{ type: "isim", text: "Bir hastalığın geniş kitlelere yayılması." }],
+                    "dalgın": [{ type: "sıfat", text: "Düşüncelere dalmış, çevresinin farkında olmayan." }],
+                    "yangın": [{ type: "isim", text: "Zarara yol açan büyük ateş." }],
+                    "baygın": [{ type: "sıfat", text: "Kendinden geçmiş, bilincini yitirmiş." }],
+                    "saygın": [{ type: "sıfat", text: "Saygı gören, itibarlı, muteber." }],
+                    "yaygın": [{ type: "sıfat", text: "Birçok kimse veya yerce benimsenmiş." }],
+                    "karton": [{ type: "isim", text: "Kalın ve sert kâğıt." }],
+                    "garson": [{ type: "isim", text: "Lokanta vb. yerlerde müşterilere hizmet eden görevli." }],
+                    "pardon": [{ type: "ünlem", text: "Özür dileme sözü, affedersiniz." }],
+                    "kanyon": [{ type: "isim, coğrafya", text: "Akarsuların derinleştirdiği dar ve dik yamaçlı vadi." }],
+                    "kamyon": [{ type: "isim", text: "Ağır yük taşımaya yarayan büyük motorlu taşıt." }],
+                    "misyon": [{ type: "isim", text: "Özel görev, amaç, özgörev." }],
+                    "vizyon": [{ type: "isim", text: "Görüş, ileriyi görme yeteneği, ülkü." }]
+                }
+            },
+            en: {
+                ui: {
+                    desc: "Change only <b>1 letter</b> of the previous word to create a valid dictionary word. Answer fast to trigger the <b>speed combo</b>!",
+                    wordLen: "Select Word Length:",
+                    len3: "3 Let.", len4: "4 Let.", len5: "5 Let.", len6: "6 Let.", lenMix: "Mixed",
+                    solo: "👤 Single Player (vs Bot)",
+                    duo: "👥 2 Players",
+                    multi: "👨‍👩‍👧‍👦 Multiplayer (3-6)",
+                    playerCount: "Player Count (3 - 6):",
+                    start: "Start",
+                    turn: "Turn:",
+                    timeLeft: "Time Left:",
+                    placeholder: "New word...",
+                    send: "Send",
+                    checking: "🔍 Checking dictionary...",
+                    dictHint: "📖 View Definition",
+                    history: "Used Words (Click for meaning):",
+                    quit: "End Game",
+                    gameOver: "Game Over!",
+                    gameLost: "Time's Up - You Lost!",
+                    menu: "Back to Menu",
+                    player: "Player",
+                    bot: "AI Bot",
+                    errInvalidChars: "⚠️ Please enter valid letters only!",
+                    errLength: (len) => `⚠️ Word must be exactly ${len} letters!`,
+                    errDiff: "⚠️ You must change ONLY 1 letter!",
+                    errUsed: "⚠️ This word has already been used!",
+                    errDict: "❌ Word not found in dictionary!",
+                    errTime: "⏰ Time's up! Eliminated.",
+                    botThinking: "🤖 Bot is picking a word...",
+                    botStuck: "🎉 Bot couldn't find a word! You win!",
+                    modalSource: "English Dictionary",
+                    modalClose: "Close",
+                    loadingMeaning: "Fetching definition...",
+                    feedbackTitle: (w) => `💡 Valid alternatives for "${w.toUpperCase()}":`,
+                    feedbackNone: (w) => `ℹ️ No remaining valid words could be formed from "${w.toUpperCase()}"!`,
+                    feedbackHint: "Click any word above to view its definition."
+                },
+                words: {
+                    "cat": [{ type: "noun", text: "A small domesticated carnivorous mammal." }],
+                    "bat": [{ type: "noun", text: "A nocturnal flying mammal; a wooden club." }],
+                    "hat": [{ type: "noun", text: "A shaped covering for the head." }],
+                    "rat": [{ type: "noun", text: "A rodent that resembles a large mouse." }],
+                    "mat": [{ type: "noun", text: "A piece of coarse material placed on a floor." }],
+                    "sat": [{ type: "verb", text: "Past tense of sit." }],
+                    "cold": [{ type: "adjective", text: "Of or at a low temperature." }],
+                    "cord": [{ type: "noun", text: "Thin, flexible string or rope." }],
+                    "card": [{ type: "noun", text: "A piece of thick, stiff paper." }],
+                    "ward": [{ type: "noun", text: "A separate room in a hospital." }],
+                    "warm": [{ type: "adjective", text: "Of or at a comfortably high temperature." }],
+                    "word": [{ type: "noun", text: "A single distinct meaningful element of speech." }],
+                    "work": [{ type: "noun", text: "Activity involving mental or physical effort." }],
+                    "light": [{ type: "noun", text: "The natural agent that stimulates sight." }],
+                    "night": [{ type: "noun", text: "The period of darkness in each twenty-four hours." }],
+                    "right": [{ type: "adjective", text: "Morally good, justified, or acceptable." }],
+                    "sight": [{ type: "noun", text: "The faculty or power of seeing." }],
+                    "fight": [{ type: "verb", text: "Take part in a violent struggle." }],
+                    "tight": [{ type: "adjective", text: "Fixed, fastened, or closed firmly." }],
+                    "flight": [{ type: "noun", text: "The action or process of flying through the air." }],
+                    "fright": [{ type: "noun", text: "A sudden intense feeling of fear." }],
+                    "bright": [{ type: "adjective", text: "Giving out or reflecting a lot of light." }],
+                    "slight": [{ type: "adjective", text: "Small in degree; inconsiderable." }]
+                }
+            }
+        },
+
+        toLower(str, lang) {
+            return lang === 'tr' ? str.toLocaleLowerCase('tr-TR') : str.toLowerCase();
+        },
+
+        getWordsByLength(lang, targetLength) {
+            const allWords = Object.keys(this.data[lang].words);
+            if (!targetLength || targetLength === 0) return allWords;
+            return allWords.filter(w => w.length === targetLength);
+        },
+
+        async fetchMeaning(word, lang) {
+            const cleanWord = this.toLower(word, lang);
+            if (this.cache[lang][cleanWord]) return this.cache[lang][cleanWord];
+
+            const localDict = this.data[lang].words;
+            if (localDict[cleanWord]) {
+                this.cache[lang][cleanWord] = localDict[cleanWord];
+                return localDict[cleanWord];
+            }
+
+            if (lang === 'tr') {
+                const tdkUrl = `https://sozluk.gov.tr/gts?ara=${encodeURIComponent(cleanWord)}`;
+                const endpoints = [
+                    tdkUrl,
+                    `https://api.allorigins.win/raw?url=${encodeURIComponent(tdkUrl)}`
+                ];
+                for (const url of endpoints) {
+                    try {
+                        const controller = new AbortController();
+                        const id = setTimeout(() => controller.abort(), 3500);
+                        const res = await fetch(url, { signal: controller.signal });
+                        clearTimeout(id);
+                        if (!res.ok) continue;
+                        const json = await res.json();
+                        if (Array.isArray(json) && json.length > 0 && Array.isArray(json[0].anlamlarListe) && json[0].anlamlarListe.length > 0) {
+                            const meanings = json[0].anlamlarListe.map(item => ({
+                                type: item.ozelliklerListe ? item.ozelliklerListe.map(o => o.tam_adi).join(', ') : 'isim',
+                                text: item.anlam
+                            }));
+                            this.cache.tr[cleanWord] = meanings;
+                            return meanings;
+                        } else if (json && json.error) {
+                            return null;
+                        }
+                    } catch (e) {}
+                }
+            } else {
+                try {
+                    const res = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(cleanWord)}`);
+                    if (res.ok) {
+                        const json = await res.json();
+                        const meanings = [];
+                        json[0].meanings.forEach(m => {
+                            m.definitions.slice(0, 2).forEach(d => {
+                                meanings.push({ type: m.partOfSpeech, text: d.definition });
+                            });
+                        });
+                        if (meanings.length > 0) {
+                            this.cache.en[cleanWord] = meanings;
+                            return meanings;
+                        }
+                    }
+                } catch (e) {}
+            }
+            return null;
+        },
+
+        getAlternatives(baseWord, usedWords, lang) {
+            const knownSet = new Set([
+                ...Object.keys(this.data[lang].words),
+                ...Object.keys(this.cache[lang])
+            ]);
+            const alts = [];
+            knownSet.forEach(w => {
+                if (w.length !== baseWord.length || usedWords.includes(w)) return;
+                let diff = 0;
+                for (let i = 0; i < w.length; i++) {
+                    if (w[i] !== baseWord[i]) diff++;
+                }
+                if (diff === 1) alts.push(w);
+            });
+            return alts;
+        }
+    };
+
+    /**
+     * 3. AĞ / ÇOKLU OYUNCU ADAPTÖRÜ
+     */
+    class LocalTransportAdapter {
+        constructor(engine) {
+            this.engine = engine;
+        }
+        sendMove(playerId, word, changedIndex, points, isFastCombo) {
+            this.engine.applyMove(playerId, word, changedIndex, points, isFastCombo);
+        }
+        sendTimeout(playerId) {
+            this.engine.applyTimeout(playerId);
+        }
+    }
+
+    /**
+     * 4. ÇEKİRDEK OYUN MOTORU (WorbitEngine)
+     */
+    const WorbitEngine = {
+        TURN_DURATION: 20,
+        transport: null,
+        timerId: null,
+        lastTickSecond: 4,
+        isBusy: false,
+        state: {
+            lang: 'tr',
+            mode: 'solo',
+            targetLength: 4,
+            players: [],
+            currentPlayerIndex: 0,
+            currentWord: '',
+            lastChangedIndex: -1,
+            usedWords: [],
+            timeRemaining: 20,
+            status: 'IDLE'
+        },
+
+        init(config, transport) {
+            this.transport = transport;
+            this.state.lang = config.lang;
+            this.state.mode = config.mode;
+            this.state.targetLength = config.targetLength;
+            this.state.players = config.players;
+            this.state.currentPlayerIndex = 0;
+            this.state.currentWord = config.startWord;
+            this.state.lastChangedIndex = -1;
+            this.state.usedWords = [config.startWord];
+            this.state.status = 'PLAYING';
+            this.isBusy = false;
+
+            UIController.onStateSynced(this.state);
+            this.startTurn();
+        },
+
+        syncState(remoteState) {
+            this.state = { ...this.state, ...remoteState };
+            UIController.onStateSynced(this.state);
+        },
+
+        startTurn() {
+            clearInterval(this.timerId);
+            if (this.state.status !== 'PLAYING') return;
+
+            this.state.timeRemaining = this.TURN_DURATION;
+            this.lastTickSecond = 4;
+            const activePlayer = this.state.players[this.state.currentPlayerIndex];
+            UIController.onTurnStarted(this.state, activePlayer);
+
+            if (activePlayer.isBot) {
+                const delay = 1400 + Math.random() * 1400;
+                setTimeout(() => {
+                    if (this.state.status === 'PLAYING' && this.state.players[this.state.currentPlayerIndex].isBot) {
+                        this.executeBotTurn();
+                    }
+                }, delay);
+            }
+
+            this.timerId = setInterval(() => {
+                if (this.isBusy || UIController.isModalOpen) return;
+                this.state.timeRemaining -= 0.1;
+
+                // Son 3 saniye tik-tak sesi
+                const ceilSec = Math.ceil(this.state.timeRemaining);
+                if (ceilSec <= 3 && ceilSec > 0 && ceilSec < this.lastTickSecond && !activePlayer.isBot) {
+                    this.lastTickSecond = ceilSec;
+                    AudioService.play('tick');
+                }
+
+                if (this.state.timeRemaining <= 0) {
+                    this.state.timeRemaining = 0;
+                    UIController.updateTimer(0, this.TURN_DURATION);
+                    clearInterval(this.timerId);
+                    this.transport.sendTimeout(activePlayer.id);
+                } else {
+                    UIController.updateTimer(this.state.timeRemaining, this.TURN_DURATION);
+                }
+            }, 100);
+        },
+
+        async validateAndSubmit(rawInput) {
+            if (this.isBusy || this.state.status !== 'PLAYING') return;
+            const activePlayer = this.state.players[this.state.currentPlayerIndex];
+            if (activePlayer.isBot) return;
+
+            const ui = DictionaryService.data[this.state.lang].ui;
+            const guess = DictionaryService.toLower(rawInput.trim(), this.state.lang);
+            if (!guess) return;
+
+            const letterRegex = this.state.lang === 'tr' ? /^[a-zçğıöşü]+$/ : /^[a-z]+$/;
+            if (!letterRegex.test(guess)) return UIController.showError(ui.errInvalidChars);
+            if (guess.length !== this.state.currentWord.length) return UIController.showError(ui.errLength(this.state.currentWord.length));
+
+            let diffCount = 0, changedIdx = -1;
+            for (let i = 0; i < this.state.currentWord.length; i++) {
+                if (guess[i] !== this.state.currentWord[i]) {
+                    diffCount++;
+                    changedIdx = i;
+                }
+            }
+
+            if (diffCount !== 1) return UIController.showError(ui.errDiff);
+            if (this.state.usedWords.includes(guess)) return UIController.showError(ui.errUsed);
+
+            this.isBusy = true;
+            UIController.setCheckingState(true);
+
+            const meanings = await DictionaryService.fetchMeaning(guess, this.state.lang);
+
+            this.isBusy = false;
+            UIController.setCheckingState(false);
+
+            if (!meanings || meanings.length === 0) {
+                return UIController.showError(ui.errDict);
+            }
+
+            // 10 saniyeden daha hızlı cevap verildiyse Hız Serisi (Combo) aktif olur
+            const isFast = this.state.timeRemaining >= 11;
+            const nextStreak = isFast ? (activePlayer.streak || 0) + 1 : 0;
+            const comboMultiplier = nextStreak >= 2 ? 1.5 : 1;
+
+            const speedBonus = Math.round(this.state.timeRemaining * 15);
+            const points = Math.round((100 + speedBonus) * comboMultiplier);
+
+            this.transport.sendMove(activePlayer.id, guess, changedIdx, points, nextStreak);
+        },
+
+        applyMove(playerId, newWord, changedIndex, points, nextStreak) {
+            clearInterval(this.timerId);
+            const player = this.state.players.find(p => p.id === playerId);
+            if (player) {
+                player.score += points;
+                player.streak = nextStreak;
+            }
+
+            this.state.currentWord = newWord;
+            this.state.lastChangedIndex = changedIndex;
+            this.state.usedWords.push(newWord);
+
+            AudioService.play(nextStreak >= 2 ? 'combo' : 'success');
+            UIController.onMoveAccepted(this.state, points, nextStreak);
+
+            setTimeout(() => this.advanceTurn(), 600);
+        },
+
+        applyTimeout(playerId) {
+            clearInterval(this.timerId);
+            AudioService.play('error');
+            const player = this.state.players.find(p => p.id === playerId);
+            if (player) {
+                player.active = false;
+                player.streak = 0;
+            }
+
+            const ui = DictionaryService.data[this.state.lang].ui;
+            UIController.showMessage(`${player.name}: ${ui.errTime}`, 'msg-error');
+
+            const activePlayers = this.state.players.filter(p => p.active);
+            if (activePlayers.length <= 1) {
+                const humanLost = player && !player.isBot;
+                setTimeout(() => this.endGame(false, humanLost), 1400);
+            } else {
+                setTimeout(() => this.advanceTurn(), 1400);
+            }
+        },
+
+        advanceTurn() {
+            if (this.state.status !== 'PLAYING') return;
+            do {
+                this.state.currentPlayerIndex = (this.state.currentPlayerIndex + 1) % this.state.players.length;
+            } while (!this.state.players[this.state.currentPlayerIndex].active);
+
+            this.startTurn();
+        },
+
+        executeBotTurn() {
+            const ui = DictionaryService.data[this.state.lang].ui;
+            const candidates = DictionaryService.getAlternatives(
+                this.state.currentWord,
+                this.state.usedWords,
+                this.state.lang
+            );
+
+            if (candidates.length === 0) {
+                clearInterval(this.timerId);
+                UIController.showMessage(ui.botStuck, 'msg-success');
+                setTimeout(() => this.endGame(false, false), 1800);
+                return;
+            }
+
+            const chosen = candidates[Math.floor(Math.random() * candidates.length)];
+            let changedIdx = -1;
+            for (let i = 0; i < chosen.length; i++) {
+                if (chosen[i] !== this.state.currentWord[i]) changedIdx = i;
+            }
+
+            const botPlayer = this.state.players[this.state.currentPlayerIndex];
+            const points = 100 + Math.round(this.state.timeRemaining * 15);
+            this.transport.sendMove(botPlayer.id, chosen, changedIdx, points, 0);
+        },
+
+        endGame(manualQuit, playerLost = false) {
+            clearInterval(this.timerId);
+            this.state.status = 'GAMEOVER';
+            const alternatives = (playerLost || manualQuit)
+                ? DictionaryService.getAlternatives(this.state.currentWord, this.state.usedWords, this.state.lang)
+                : [];
+
+            UIController.onGameEnded(this.state, playerLost, manualQuit, alternatives);
+        }
+    };
+
+    /**
+     * 5. ARAYÜZ KONTROLCÜSÜ (UIController)
+     */
+    const UIController = {
+        selectedLang: 'tr',
+        selectedLength: 4,
+        isModalOpen: false,
+
+        selectLength(len) {
+            this.selectedLength = len;
+            document.querySelectorAll('.len-btn').forEach(btn => {
+                btn.classList.toggle('active', parseInt(btn.dataset.len) === len);
+            });
+        },
+
+        changeLanguage() {
+            this.selectedLang = document.getElementById('lang-select').value;
+            const ui = DictionaryService.data[this.selectedLang].ui;
+
+            document.getElementById('menu-desc').innerHTML = ui.desc;
+            document.getElementById('lbl-word-len').innerText = ui.wordLen;
+            document.querySelector('.len-btn[data-len="3"]').innerText = ui.len3;
+            document.querySelector('.len-btn[data-len="4"]').innerText = ui.len4;
+            document.querySelector('.len-btn[data-len="5"]').innerText = ui.len5;
+            document.querySelector('.len-btn[data-len="6"]').innerText = ui.len6;
+            document.querySelector('.len-btn[data-len="0"]').innerText = ui.lenMix;
+
+            document.getElementById('btn-solo').innerText = ui.solo;
+            document.getElementById('btn-duo').innerText = ui.duo;
+            document.getElementById('btn-multi').innerText = ui.multi;
+            document.getElementById('lbl-player-count').innerText = ui.playerCount;
+            document.getElementById('btn-start-multi').innerText = ui.start;
+            document.getElementById('word-input').placeholder = ui.placeholder;
+            document.getElementById('btn-send').innerText = ui.send;
+            document.getElementById('dict-hint-badge').innerText = ui.dictHint;
+            document.getElementById('lbl-history').innerText = ui.history;
+            document.getElementById('btn-quit').innerText = ui.quit;
+            document.getElementById('btn-menu').innerText = ui.menu;
+            document.getElementById('modal-source-badge').innerText = ui.modalSource;
+            document.getElementById('btn-close-modal').innerText = ui.modalClose;
+            document.getElementById('feedback-hint').innerText = ui.feedbackHint;
+        },
+
+        toggleMultiSetup() {
+            const el = document.getElementById('multi-setup');
+            el.style.display = el.style.display === 'flex' ? 'none' : 'flex';
+        },
+
+        showScreen(id) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+        },
+
+        showMenu() {
+            clearInterval(WorbitEngine.timerId);
+            document.getElementById('app-container').classList.remove('fever-mode');
+            this.showScreen('menu-screen');
+        },
+
+        onStateSynced(state) {
+            this.showScreen('game-screen');
+            this.renderScoreboard(state);
+            this.renderWord(state.currentWord, state.lastChangedIndex);
+            this.renderHistory(state.usedWords);
+        },
+
+        onTurnStarted(state, activePlayer) {
+            const ui = DictionaryService.data[state.lang].ui;
+            this.renderScoreboard(state);
+            document.getElementById('turn-indicator').innerText = `${ui.turn} ${activePlayer.name}`;
+            document.getElementById('word-len-badge').innerText = state.lang === 'tr'
+                ? `${state.currentWord.length} Harf`
+                : `${state.currentWord.length} Letters`;
+
+            document.getElementById('app-container').classList.toggle('fever-mode', (activePlayer.streak || 0) >= 2);
+
+            const inputEl = document.getElementById('word-input');
+            const sendBtn = document.getElementById('btn-send');
+            inputEl.value = "";
+            inputEl.maxLength = state.currentWord.length;
+            inputEl.classList.remove('shake-error');
+
+            if (activePlayer.isBot) {
+                inputEl.disabled = true;
+                sendBtn.disabled = true;
+                this.showMessage(ui.botThinking, 'msg-info');
+            } else {
+                inputEl.disabled = false;
+                sendBtn.disabled = false;
+                this.clearMessage();
+                inputEl.focus();
+            }
+        },
+
+        onMoveAccepted(state, points, streak) {
+            this.renderScoreboard(state);
+            this.renderWord(state.currentWord, state.lastChangedIndex);
+            this.renderHistory(state.usedWords);
+
+            // Uçan Puan Efekti ve Parçacık Patlaması
+            const arena = document.getElementById('word-arena');
+            const floatEl = document.createElement('div');
+            floatEl.className = 'floating-score';
+            floatEl.innerText = streak >= 2 ? `+${points} 🔥` : `+${points}`;
+            arena.appendChild(floatEl);
+            setTimeout(() => floatEl.remove(), 1100);
+
+            const changedTile = document.querySelector('.letter-tile.changed');
+            if (changedTile) {
+                const rect = changedTile.getBoundingClientRect();
+                ParticleFX.burst(rect.left + rect.width / 2, rect.top + rect.height / 2);
+            }
+
+            const comboText = streak >= 2 ? ` (🔥 ${streak}x Seri!)` : '';
+            this.showMessage(`✅ +${points} Puan!${comboText}`, 'msg-success');
+        },
+
+        setCheckingState(isChecking) {
+            const ui = DictionaryService.data[this.selectedLang].ui;
+            const inputEl = document.getElementById('word-input');
+            const sendBtn = document.getElementById('btn-send');
+            inputEl.disabled = isChecking;
+            sendBtn.disabled = isChecking;
+            if (isChecking) {
+                this.showMessage(ui.checking, 'msg-info');
+            } else {
+                inputEl.focus();
+            }
+        },
+
+        showError(msg) {
+            AudioService.play('error');
+            this.showMessage(msg, 'msg-error');
+            const inputEl = document.getElementById('word-input');
+            inputEl.classList.remove('shake-error');
+            void inputEl.offsetWidth;
+            inputEl.classList.add('shake-error');
+            inputEl.focus();
+            inputEl.select();
+        },
+
+        showMessage(text, cls) {
+            const box = document.getElementById('message-box');
+            box.className = `message-box ${cls}`;
+            box.innerText = text;
+        },
+
+        clearMessage() {
+            const box = document.getElementById('message-box');
+            box.className = 'message-box';
+            box.innerText = '';
+        },
+
+        updateTimer(remaining, total) {
+            const ui = DictionaryService.data[this.selectedLang].ui;
+            const pct = (remaining / total) * 100;
+            const bar = document.getElementById('timer-bar');
+            const timeText = document.getElementById('time-text');
+
+            bar.style.width = `${pct}%`;
+            if (remaining <= 5) {
+                bar.classList.add('danger-pulse');
+                timeText.classList.add('urgent');
+            } else {
+                bar.classList.remove('danger-pulse');
+                timeText.classList.remove('urgent');
+            }
+            timeText.innerText = `${ui.timeLeft} ${remaining.toFixed(1)}s`;
+        },
+
+        renderScoreboard(state) {
+            const sb = document.getElementById('scoreboard');
+            sb.innerHTML = "";
+            state.players.forEach((p, idx) => {
+                const div = document.createElement('div');
+                div.className = `player-badge ${idx === state.currentPlayerIndex ? 'active' : ''} ${!p.active ? 'eliminated' : ''}`;
+                const streakHtml = (p.streak || 0) >= 2 ? `<span class="streak-pill">🔥 ${p.streak}x</span>` : '';
+                div.innerHTML = `
+                    ${streakHtml}
+                    <div class="player-name">${p.name}</div>
+                    <div class="player-score">${p.score}</div>
+                `;
+                sb.appendChild(div);
+            });
+        },
+
+        renderWord(word, changedIndex) {
+            const container = document.getElementById('word-display');
+            container.innerHTML = "";
+            const isCompact = word.length >= 5;
+            for (let i = 0; i < word.length; i++) {
+                const tile = document.createElement('div');
+                const isChanged = i === changedIndex;
+                tile.className = `letter-tile ${isCompact ? 'compact' : ''} ${isChanged ? 'changed' : 'wave'}`;
+                if (!isChanged) {
+                    tile.style.animationDelay = `${i * 0.04}s`;
+                }
+                tile.innerText = word[i];
+                container.appendChild(tile);
+            }
+        },
+
+        renderHistory(usedWords) {
+            const list = document.getElementById('history-list');
+            list.innerHTML = "";
+            usedWords.slice().reverse().forEach(w => {
+                const span = document.createElement('span');
+                span.className = 'history-tag';
+                span.innerText = w;
+                span.onclick = () => this.openMeaningModal(w);
+                list.appendChild(span);
+            });
+        },
+
+        onGameEnded(state, playerLost, manualQuit, alternatives) {
+            document.getElementById('app-container').classList.remove('fever-mode');
+            const ui = DictionaryService.data[state.lang].ui;
+            const titleEl = document.getElementById('gameover-title');
+
+            if (playerLost) {
+                titleEl.innerText = ui.gameLost;
+                titleEl.style.color = 'var(--danger)';
+            } else {
+                titleEl.innerText = ui.gameOver;
+                titleEl.style.color = 'var(--secondary)';
+                // Kazanınca kutlama parçacıkları
+                ParticleFX.burst(window.innerWidth / 2, window.innerHeight / 3);
+            }
+
+            const sorted = [...state.players].sort((a, b) => b.score - a.score);
+            const container = document.getElementById('final-scores');
+            container.innerHTML = "";
+
+            sorted.forEach((p, idx) => {
+                const row = document.createElement('div');
+                row.style.cssText = "display:flex; justify-content:space-between; background:rgba(15,23,42,0.85); border:1px solid #334155; padding:14px; border-radius:14px; font-weight:800;";
+                const medal = idx === 0 ? "🏆 " : (idx === 1 ? "🥈 " : (idx === 2 ? "🥉 " : ""));
+                row.innerHTML = `<span>${medal}${p.name}</span><span style="color:#34d399">${p.score} Puan</span>`;
+                container.appendChild(row);
+            });
+
+            const feedbackBox = document.getElementById('feedback-box');
+            const feedbackTitle = document.getElementById('feedback-title');
+            const feedbackTags = document.getElementById('feedback-tags');
+            const feedbackHint = document.getElementById('feedback-hint');
+
+            if (playerLost || manualQuit) {
+                feedbackBox.style.display = 'flex';
+                feedbackTags.innerHTML = "";
+                if (alternatives.length > 0) {
+                    feedbackTitle.innerText = ui.feedbackTitle(state.currentWord);
+                    feedbackHint.style.display = 'block';
+                    alternatives.forEach(alt => {
+                        const tag = document.createElement('span');
+                        tag.className = 'alt-tag';
+                        tag.innerText = alt;
+                        tag.onclick = () => this.openMeaningModal(alt);
+                        feedbackTags.appendChild(tag);
+                    });
+                } else {
+                    feedbackTitle.innerText = ui.feedbackNone(state.currentWord);
+                    feedbackHint.style.display = 'none';
+                }
+            } else {
+                feedbackBox.style.display = 'none';
+            }
+
+            this.showScreen('gameover-screen');
+        },
+
+        async openMeaningModal(word) {
+            if (!word) return;
+            const ui = DictionaryService.data[this.selectedLang].ui;
+            this.isModalOpen = true;
+
+            const modal = document.getElementById('meaning-modal');
+            const titleEl = document.getElementById('modal-word-title');
+            const bodyEl = document.getElementById('modal-meaning-body');
+
+            titleEl.innerText = this.selectedLang === 'tr' ? word.toLocaleUpperCase('tr-TR') : word.toUpperCase();
+            bodyEl.innerHTML = `<div style="color: var(--text-muted); text-align:center; padding: 20px;">${ui.loadingMeaning}</div>`;
+            modal.classList.add('open');
+
+            const meanings = await DictionaryService.fetchMeaning(word, this.selectedLang);
+            if (meanings && meanings.length > 0) {
+                bodyEl.innerHTML = meanings.map((m, i) => `
+                    <div class="meaning-item">
+                        <div class="meaning-type">${i + 1}. ${m.type}</div>
+                        <div>${m.text}</div>
+                    </div>
+                `).join('');
+            } else {
+                bodyEl.innerHTML = `<div class="meaning-item">${ui.errDict}</div>`;
+            }
+        },
+
+        closeMeaningModal(event) {
+            if (event && event.target !== document.getElementById('meaning-modal')) return;
+            document.getElementById('meaning-modal').classList.remove('open');
+            this.isModalOpen = false;
+            if (WorbitEngine.state.status === 'PLAYING' && !WorbitEngine.state.players[WorbitEngine.state.currentPlayerIndex].isBot) {
+                document.getElementById('word-input').focus();
+            }
+        }
+    };
+
+    /**
+     * 6. OYUN BAŞLATICI (GameBootstrap)
+     */
+    const GameBootstrap = {
+        startLocal(mode) {
+            const lang = UIController.selectedLang;
+            const ui = DictionaryService.data[lang].ui;
+            const players = [];
+
+            if (mode === 'solo') {
+                players.push({ id: 'p1', name: `${ui.player} 1`, score: 0, streak: 0, isBot: false, active: true });
+                players.push({ id: 'bot', name: ui.bot, score: 0, streak: 0, isBot: true, active: true });
+            } else if (mode === 'duo') {
+                players.push({ id: 'p1', name: `${ui.player} 1`, score: 0, streak: 0, isBot: false, active: true });
+                players.push({ id: 'p2', name: `${ui.player} 2`, score: 0, streak: 0, isBot: false, active: true });
+            } else {
+                let count = parseInt(document.getElementById('player-count-input').value) || 3;
+                count = Math.max(3, Math.min(6, count));
+                for (let i = 1; i <= count; i++) {
+                    players.push({ id: `p${i}`, name: `${ui.player} ${i}`, score: 0, streak: 0, isBot: false, active: true });
+                }
+            }
+
+            const pool = DictionaryService.getWordsByLength(lang, UIController.selectedLength);
+            const startWord = pool[Math.floor(Math.random() * pool.length)];
+
+            const transport = new LocalTransportAdapter(WorbitEngine);
+            WorbitEngine.init({
+                lang,
+                mode,
+                targetLength: UIController.selectedLength,
+                players,
+                startWord
+            }, transport);
+        },
+
+        handleUserSubmit() {
+            const val = document.getElementById('word-input').value;
+            WorbitEngine.validateAndSubmit(val);
+        }
+    };
+
+    document.getElementById('word-input').addEventListener('input', function () {
+        this.classList.remove('shake-error');
+    });
+
+    document.getElementById('word-input').addEventListener('keypress', function (e) {
+        if (e.key === 'Enter') GameBootstrap.handleUserSubmit();
+    });
+</script>
+
+</body>
+</html>
